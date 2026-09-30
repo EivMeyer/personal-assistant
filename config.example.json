@@ -1,0 +1,39 @@
+{
+  "mode": "preview",
+  "dataDir": "~/.local/share/personal-assistant",
+  "model": "gpt-5-mini",
+  "telegram": {
+    "tokenEnv": "TELEGRAM_BOT_TOKEN",
+    "userId": 123456789,
+    "chatId": 123456789
+  },
+  "gmail": {
+    "clientIdEnv": "GOOGLE_CLIENT_ID",
+    "clientSecretEnv": "GOOGLE_CLIENT_SECRET",
+    "senderAccount": "company",
+    "accounts": [
+      {
+        "id": "company",
+        "email": "owner@theopenengine.com",
+        "refreshTokenEnv": "GMAIL_COMPANY_REFRESH_TOKEN"
+      },
+      {
+        "id": "private",
+        "email": "replace-me@example.com",
+        "refreshTokenEnv": "GMAIL_PRIVATE_REFRESH_TOKEN"
+      }
+    ]
+  },
+  "whatsapp": {
+    "messagesDb": "~/repos/whatsapp-mcp/whatsapp-bridge/store/messages.db",
+    "sessionDb": "~/repos/whatsapp-mcp/whatsapp-bridge/store/whatsapp.db",
+    "selfJid": "4700000000@s.whatsapp.net",
+    "bridgeUrl": "http://127.0.0.1:8080",
+    "allowGroups": false
+  },
+  "mutedThreads": [],
+  "trustedContext": "The owner works at The Open Engine. Website: https://theopenengine.com. Time zone: Europe/Oslo. Never claim calendar availability without asking me. Outgoing email always uses owner@theopenengine.com.",
+  "maxContextChars": 80000,
+  "maxAssessmentsPerDay": 100,
+  "approvalHours": 24
+}

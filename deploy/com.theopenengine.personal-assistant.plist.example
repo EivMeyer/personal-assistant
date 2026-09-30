@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.theopenengine.personal-assistant</string>
+  <key>ProgramArguments</key><array>
+    <string>/ABSOLUTE/PATH/TO/node</string>
+    <string>/ABSOLUTE/PATH/TO/personal-assistant/dist/cli.js</string>
+    <string>start</string>
+    <string>--config</string><string>/ABSOLUTE/PATH/TO/config.json</string>
+    <string>--env-file</string><string>/ABSOLUTE/PATH/TO/credentials.env</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>/ABSOLUTE/PATH/TO/assistant.stdout.log</string>
+  <key>StandardErrorPath</key><string>/ABSOLUTE/PATH/TO/assistant.stderr.log</string>
+</dict></plist>

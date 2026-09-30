@@ -1,0 +1,16 @@
+{
+  "id": "secretary-action-preview",
+  "name": "Secretary action preview",
+  "description": "Complete Telegram action preview with sender verification before native MCP approval.",
+  "categories": ["other"],
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "trustedToolPolicies": ["review-external-actions"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false
+  }
+}

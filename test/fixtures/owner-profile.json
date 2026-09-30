@@ -1,0 +1,9 @@
+{
+  "name": "Test Owner",
+  "workEmail": "owner@theopenengine.com",
+  "telegramUserId": "700000001",
+  "timezone": "Europe/Oslo",
+  "slackUserId": "UOWNER",
+  "slackTeamId": "TTEAM",
+  "whatsappPhone": "+4790000000"
+}

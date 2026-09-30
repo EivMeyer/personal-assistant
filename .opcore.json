@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "documentation": {
+    "bindings": [
+      {
+        "source": "deploy/openclaw/action-preview/owner-profile.mjs",
+        "document": "docs/onboarding.md"
+      }
+    ]
+  }
+}
