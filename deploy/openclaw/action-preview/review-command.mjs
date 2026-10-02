@@ -8,7 +8,7 @@ export async function reviewCommand(ctx, review) {
         (item) => args[1]?.length >= 8 && item.id.startsWith(args[1]),
       );
       if (matches.length !== 1)
-        throw Error("Use the unique action ID shown by /inbox.");
+        throw Error("Use the unique item ID shown by /inbox.");
       ctx.assertOwnerCurrent?.();
       await review.open(matches[0].id, matches[0].version);
       return {
@@ -28,7 +28,7 @@ export async function reviewCommand(ctx, review) {
               )
               .join("\n\n")
           : "No prepared actions or questions are waiting.") +
-        "\n\nUse /inbox review ACTION_ID to open a prepared action. The Mac app shows the same queue. Native approvals can be resolved in either place.",
+        "\n\nEach item also has its own message with buttons. /inbox review ITEM_ID opens one.",
     };
   } catch (error) {
     return { text: error.message };

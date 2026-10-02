@@ -1,8 +1,8 @@
-# Per-installation verification
+# Verification
 
 Record results privately with timestamps and source/API receipt IDs. Never copy
 source messages or credentials into this repository. Use fictional fixtures for
-unit tests and the person's real accounts only for approved integration tests.
+unit tests and the owner's real accounts only for approved integration tests.
 
 | Stage          | What proves it                                                                               |
 | -------------- | -------------------------------------------------------------------------------------------- |

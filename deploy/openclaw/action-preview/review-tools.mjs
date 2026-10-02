@@ -16,7 +16,7 @@ export function registerReviewTools(api, getReview) {
         name: "secretary_review",
         label: "Action review queue",
         description:
-          "Stage exact actions or questions in the owner's shared app and Telegram review queue. Never executes or approves actions.",
+          "Stage exact actions or questions in the owner's Telegram review queue. Never executes or approves actions.",
         parameters: {
           type: "object",
           properties: {

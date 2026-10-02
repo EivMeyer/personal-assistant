@@ -3,11 +3,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir } from "node:os";
 const execute = promisify(execFile);
-const allowed = new Set([
-  "plugin.approval.list",
-  "plugin.approval.resolve",
-  "chat.send",
-]);
+const allowed = new Set(["chat.send"]);
 export async function reviewGateway(method, params = {}) {
   if (!allowed.has(method)) throw Error("Unsupported review operation.");
   const { stdout } = await execute(

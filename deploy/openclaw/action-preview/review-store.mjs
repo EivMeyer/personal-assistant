@@ -40,6 +40,14 @@ export class ReviewStore {
       sessionKey TEXT, fingerprint TEXT, created INTEGER NOT NULL, updated INTEGER NOT NULL,
       answer TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', actionId TEXT
     );`);
+    // Which Telegram message shows the item, and the item version it shows.
+    const columns = this.db
+      .prepare("PRAGMA table_info(review_items)")
+      .all()
+      .map((c) => c.name);
+    for (const column of ["telegramId", "renderedVersion"])
+      if (!columns.includes(column))
+        this.db.exec(`ALTER TABLE review_items ADD COLUMN ${column} INTEGER`);
   }
   get(id) {
     const row = this.db
@@ -130,6 +138,32 @@ export class ReviewStore {
       throw Error("This review changed. Refresh before deciding.");
     return this.get(id);
   }
+  // Items whose Telegram message is missing or shows an older version. Items
+  // that closed before ever being shown stay out of the chat.
+  unrendered() {
+    return this.db
+      .prepare(
+        `SELECT * FROM review_items WHERE renderedVersion IS NOT version
+         AND (telegramId IS NOT NULL OR state IN ('ready','needs_info','opening','answered'))
+         ORDER BY created LIMIT 20`,
+      )
+      .all()
+      .map((r) => this.parse(r));
+  }
+  // Rendering is bookkeeping, not a review change, so it keeps the version.
+  markRendered(id, version, telegramId) {
+    this.db
+      .prepare(
+        "UPDATE review_items SET telegramId=?,renderedVersion=? WHERE id=? AND version=?",
+      )
+      .run(telegramId, version, id, version);
+  }
+  byTelegramId(telegramId) {
+    const row = this.db
+      .prepare("SELECT * FROM review_items WHERE telegramId=?")
+      .get(telegramId);
+    return row ? this.parse(row) : null;
+  }
   activeForSession(sessionKey) {
     const row = this.db
       .prepare(
@@ -139,6 +173,11 @@ export class ReviewStore {
     return row ? this.parse(row) : null;
   }
   reconcile() {
+    this.db
+      .prepare(
+        "UPDATE actions SET state='expired' WHERE state='pending' AND expires<?",
+      )
+      .run(Date.now());
     for (const item of this.list().filter(
       (r) => r.action && r.state === "opening",
     ))
@@ -164,7 +203,9 @@ export class ReviewStore {
       });
   }
 }
-export function authorizedWebReview(event, ctx, path = actionDatabase()) {
+// Opening a queue item starts its review session through the local gateway,
+// which reports the requester as webchat.
+export function authorizedQueueReview(event, ctx, path = actionDatabase()) {
   if (
     ctx.requester?.channel !== "webchat" ||
     ctx.requester?.senderIsOwner !== true ||

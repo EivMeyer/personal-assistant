@@ -1,10 +1,32 @@
 # OpenClaw integration
 
-Start with [onboarding](onboarding.md) or [agent onboarding](agent-onboarding.md).
-See [connectors](connectors.md), [operations](operations.md) and
-[per-person verification](verification.md).
+OpenClaw loads the plugin straight from `deploy/openclaw/action-preview` in this
+checkout, so a gateway restart runs whatever the working tree holds. See
+[connectors](connectors.md), [operations](operations.md),
+[review queue](review-queue.md) and [verification](verification.md).
 
-The shared runtime has no default owner account. Its private profile binds the
-Telegram user, company sender, optional Slack user/workspace, and optional paired
-WhatsApp account. Missing or wrong identities fail closed. Each owner supplies
-independent model authentication and source credentials.
+## Owner profile
+
+The runtime has no built-in owner. It reads a private profile from
+`~/.local/share/secretary/profile.json` (mode 600), or from the path in
+`SECRETARY_OWNER_FILE`:
+
+```json
+{
+  "name": "Owner name",
+  "workEmail": "owner@theopenengine.com",
+  "telegramUserId": "123456789",
+  "timezone": "Europe/Oslo"
+}
+```
+
+`telegramUserId` is the numeric user ID, not a username or bot ID. Optional
+`slackUserId` and `slackTeamId` go together and must match the connected Slack
+account. `whatsappPhone` is the owner's international number and
+`whatsappStoreDir` the absolute path to the paired bridge store. Unknown fields
+are rejected; tokens never belong here. A missing or invalid profile fails closed.
+
+The Telegram bot token lives in `~/.openclaw/telegram-token` (mode 600), and
+`channels.telegram.allowFrom` holds only the owner's ID. `npm run doctor` checks
+the profile, token, owner binding and guarded action connectors; it does not
+prove a live delivery.

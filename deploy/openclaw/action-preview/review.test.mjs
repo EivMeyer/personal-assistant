@@ -3,22 +3,12 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ActionStore, actionKey } from "./action-store.mjs";
+import { ActionStore } from "./action-store.mjs";
 import { executeGuarded } from "./action-guard.mjs";
 import { ReviewService } from "./review-service.mjs";
-import { authorizedWebReview } from "./review-store.mjs";
-import { reviewHttp } from "./review-http.mjs";
-const action = {
-  server: "gmail-work-actions",
-  tool: "send_email",
-  args: {
-    to: ["recipient@example.com"],
-    subject: "Fixture",
-    body: "Fictional message",
-    secretary_sources: [],
-    timeoutMs: 210000,
-  },
-};
+import { fixtureAction } from "./review-fixture.mjs";
+import { authorizedQueueReview } from "./review-store.mjs";
+const action = fixtureAction;
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), "secretary-review-test-")),
     path = join(dir, "actions.sqlite"),
@@ -27,18 +17,10 @@ function fixture(t) {
     actions.close();
     rmSync(dir, { recursive: true, force: true });
   });
-  const calls = [],
-    approvals = [];
+  const calls = [];
   let freshness = "initial";
   const rpc = async (method, params) => {
     calls.push({ method, params });
-    if (method === "plugin.approval.list") return structuredClone(approvals);
-    if (method === "plugin.approval.resolve") {
-      const i = approvals.findIndex((a) => a.id === params.id);
-      if (i < 0) throw Error("Already resolved elsewhere");
-      approvals.splice(i, 1);
-      return { ok: true };
-    }
     return { runId: "fixture-run", status: "started" };
   };
   const review = new ReviewService({
@@ -51,7 +33,6 @@ function fixture(t) {
     review,
     actions,
     calls,
-    approvals,
     path,
     changeSource: () => (freshness = "changed"),
   };
@@ -64,32 +45,16 @@ async function staged(f, key = "fixture") {
   });
 }
 function pending(f, args = action.args) {
-  const id = f.actions.reserve({
+  return f.actions.reserve({
     server: action.server,
     name: action.tool,
     args,
     snapshot: [{ hash: "initial" }],
     runId: "fixture-run",
   });
-  f.approvals.push({
-    id: "plugin:fixture",
-    expiresAtMs: Date.now() + 120000,
-    request: {
-      runId: "fixture-run",
-      mcpTool: { server: action.server, tool: action.tool },
-      allowedDecisions: ["allow-once", "deny"],
-    },
-  });
-  return id;
 }
-async function decision(f, id, choice = "allow-once") {
-  const row = (await f.review.list()).actions.find((a) => a.id === id);
-  return {
-    id,
-    approvalId: row.approvalId,
-    reviewToken: row.reviewToken,
-    decision: choice,
-  };
+function actionRow(f, id) {
+  return f.actions.db.prepare("SELECT * FROM actions WHERE id=?").get(id);
 }
 test("opening an exact review requests a native approval without executing", async (t) => {
   const f = fixture(t),
@@ -110,9 +75,9 @@ test("opening an exact review requests a native approval without executing", asy
     toolName: "mcp__gmail-work-actions__send_email",
     params: action.args,
   };
-  assert.equal(authorizedWebReview(event, ctx, f.path), true);
+  assert.equal(authorizedQueueReview(event, ctx, f.path), true);
   assert.equal(
-    authorizedWebReview(
+    authorizedQueueReview(
       { ...event, params: { ...action.args, body: "Changed" } },
       ctx,
       f.path,
@@ -120,7 +85,7 @@ test("opening an exact review requests a native approval without executing", asy
     false,
   );
   assert.equal(
-    authorizedWebReview(
+    authorizedQueueReview(
       event,
       { ...ctx, requester: { channel: "webchat", senderIsOwner: false } },
       f.path,
@@ -142,7 +107,6 @@ test("source changes before opening block preparation", async (t) => {
 test("one approval executes once and history comes from the connector receipt", async (t) => {
   const f = fixture(t),
     id = pending(f);
-  await f.review.resolve(await decision(f, id));
   let sent = 0;
   const options = {
     server: action.server,
@@ -160,14 +124,16 @@ test("one approval executes once and history comes from the connector receipt", 
   assert.equal(sent, 1);
   await assert.rejects(executeGuarded(options), /consumed/);
   assert.equal(sent, 1);
-  const result = (await f.review.list()).actions.find((a) => a.id === id);
+  const result = actionRow(f, id);
   assert.equal(result.state, "completed");
-  assert.match(result.outcome.result.content[0].text, /Fixture accepted/);
+  assert.match(
+    JSON.parse(result.outcome).result.content[0].text,
+    /Fixture accepted/,
+  );
 });
 test("a reply arriving after approval blocks dispatch", async (t) => {
   const f = fixture(t),
     id = pending(f);
-  await f.review.resolve(await decision(f, id));
   let sent = 0;
   await executeGuarded({
     server: action.server,
@@ -181,61 +147,7 @@ test("a reply arriving after approval blocks dispatch", async (t) => {
     },
   });
   assert.equal(sent, 0);
-  assert.equal(
-    (await f.review.list()).actions.find((a) => a.id === id).state,
-    "blocked",
-  );
-});
-test("unmatched and stale native approval tickets cannot authorize an action", async (t) => {
-  const f = fixture(t),
-    id = pending(f);
-  const p = await decision(f, id);
-  await assert.rejects(
-    f.review.resolve({ ...p, reviewToken: "forged" }),
-    /exact approval changed/,
-  );
-  f.approvals[0].request.mcpTool.tool = "delete_email";
-  await assert.rejects(f.review.resolve(p), /exact approval changed/);
-  assert.equal(
-    f.calls.filter((c) => c.method === "plugin.approval.resolve").length,
-    0,
-  );
-});
-test("a Telegram decision makes the web copy non-executable", async (t) => {
-  const f = fixture(t),
-    id = pending(f);
-  const p = await decision(f, id);
-  f.approvals.length = 0;
-  await assert.rejects(f.review.resolve(p), /exact approval changed/);
-  assert.equal(
-    (await f.review.list()).actions.find((a) => a.id === id).canApprove,
-    false,
-  );
-});
-test("editing rejects the old native action and creates an unapproved revision", async (t) => {
-  const f = fixture(t),
-    id = pending(f);
-  const p = await decision(f, id);
-  const revised = {
-    ...action,
-    args: { ...action.args, body: "Edited fictional message" },
-  };
-  const next = await f.review.revise({
-    ...p,
-    action: revised,
-    title: "Edited reply",
-  });
-  assert.equal(next.state, "ready");
-  assert.equal(next.action.args.body, revised.args.body);
-  assert.notEqual(
-    next.fingerprint,
-    actionKey(action.server, action.tool, action.args),
-  );
-  assert.equal(
-    f.actions.db.prepare("SELECT state FROM actions WHERE id=?").get(id).state,
-    "rejected",
-  );
-  await assert.rejects(f.review.resolve(p), /no longer awaiting approval/);
+  assert.equal(actionRow(f, id).state, "blocked");
 });
 test("answering a question creates a draftable item without approving it", async (t) => {
   const f = fixture(t);
@@ -254,33 +166,7 @@ test("answering a question creates a draftable item without approving it", async
   assert.equal(next.state, "ready");
   assert.equal(next.answer, "Thursday");
   assert.equal(
-    f.calls.filter((c) => c.method === "plugin.approval.resolve").length,
+    f.actions.db.prepare("SELECT COUNT(*) AS n FROM actions").get().n,
     0,
-  );
-});
-test("HTTP review decisions use the same service and reject unknown routes", async (t) => {
-  const f = fixture(t),
-    id = pending(f);
-  const p = await decision(f, id);
-  let response;
-  const handled = await reviewHttp(
-    {
-      req: { method: "POST" },
-      path: "/api/reviews/decision",
-      reply: (status, data) => (response = { status, data }),
-    },
-    async () => p,
-    f.review,
-  );
-  assert.equal(handled, true);
-  assert.equal(response.status, 200);
-  assert.equal(response.data.ok, true);
-  assert.equal(
-    await reviewHttp(
-      { req: { method: "POST" }, path: "/api/reviews/arbitrary" },
-      async () => ({}),
-      f.review,
-    ),
-    false,
   );
 });

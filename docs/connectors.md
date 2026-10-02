@@ -42,7 +42,7 @@ an OAuth login hint. Read full threads and attachments relevant to the request.
 
 Obtain your own workspace user token through the approved Slack app installation.
 Keep it in a private environment file. Verify `auth.test`; copy its `user_id` and
-`team_id` into your owner profile. Do not copy another person's IDs. The reviewed
+`team_id` into the owner profile. The reviewed
 native Slack MCP backend version is 1.3.0. Filter the reader to read/search tools;
 route writes through `slack-actions` with the guarded wrapper and native prompts.
 The watcher searches your DMs and mentions. Search indexing can delay detection.
@@ -90,7 +90,7 @@ inspect guarded-mcp.mjs's CLI contract when wiring a connector. The action-previ
 plugin verifies owner ingress and sender identity, binds the exact argument preview,
 and reserves a single-use action before backend execution. After approval it
 refreshes source snapshots and target versions. Unknown send outcomes are never
-blindly retried. Keep all those checks enabled during onboarding.
+blindly retried. Keep all those checks enabled when connecting a source.
 
 ## Authenticated GitHub reads
 

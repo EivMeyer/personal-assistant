@@ -55,9 +55,7 @@ export function ownerProfile() {
         profileSchema.parse(JSON.parse(readFileSync(path, "utf8"))),
       );
     } catch {
-      throw Error(
-        "Owner profile is missing or invalid. Run npm run onboard; never copy another person's profile.",
-      );
+      throw Error("Owner profile is missing or invalid. See docs/openclaw.md.");
     }
   }
   return cached;

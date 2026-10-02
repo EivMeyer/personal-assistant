@@ -4,7 +4,7 @@
     "bindings": [
       {
         "source": "deploy/openclaw/action-preview/owner-profile.mjs",
-        "document": "docs/onboarding.md"
+        "document": "docs/openclaw.md"
       }
     ]
   }

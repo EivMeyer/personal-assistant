@@ -1,13 +1,10 @@
-# Company personal assistant
+# Personal assistant
 
-For "set this up for me", follow docs/agent-onboarding.md. Run the structured
-onboarding plan and perform the setup work. Ask for missing identity once, then
-pause only for human authentication/pairing or exact external-action approval.
-
-The active deployment is OpenClaw, with Telegram as the owner interface. Each
-person has a separate private owner profile and runtime. Never copy another
-person's bot, tokens, inbox, contacts, sessions or memories. Company-internal
-repository access shares code, not personal correspondence.
+Eivind's own assistant, not a product or team setup. The active deployment is
+OpenClaw, with Telegram as the only interface: conversation, notices and the
+review queue all live in the owner's private chat. OpenClaw loads the plugin
+from this checkout, so a gateway restart deploys the working tree. Test before
+restarting it.
 
 ## Invariants
 
@@ -25,6 +22,6 @@ repository access shares code, not personal correspondence.
 ## Validation
 
 Run npm run check and the installed Opcore/Opcore Zero gates. Tests use fictional
-fixtures and must not load a developer's live profile. Use a temporary --home for
-onboarding tests. Real external test actions require the owner's exact approval.
+fixtures and must not load the live profile. Real external test actions require
+the owner's exact approval.
 Read-only integration checks and reversible local setup follow the user's scope.

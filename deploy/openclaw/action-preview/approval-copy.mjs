@@ -64,11 +64,9 @@ function valueText(value) {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value ?? "");
 }
-export function actionPreviewText({ tool, params, identity, destination }) {
-  const lines = [
-    QUESTIONS[tool] ?? "Go ahead with this action?",
-    "From: " + identity,
-  ];
+// The visible fields of an action, one line each, as the approval shows them.
+export function actionFieldLines(params, destination) {
+  const lines = [];
   for (const [key, value] of Object.entries(params)) {
     if (HIDDEN.has(key)) continue;
     if (key === "channel_id" && destination) {
@@ -85,6 +83,14 @@ export function actionPreviewText({ tool, params, identity, destination }) {
     }
     lines.push(label(key) + ": " + valueText(value));
   }
+  return lines;
+}
+export function actionPreviewText({ tool, params, identity, destination }) {
+  const lines = [
+    QUESTIONS[tool] ?? "Go ahead with this action?",
+    "From: " + identity,
+    ...actionFieldLines(params, destination),
+  ];
   if (!QUESTIONS[tool]) lines.splice(1, 0, "Action: " + label(tool));
   return (
     lines.join("\n\n") +

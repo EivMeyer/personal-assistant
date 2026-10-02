@@ -1,5 +1,5 @@
-import { authorizedWebReview } from "./review-store.mjs";
-import { registerInbox } from "./inbox.mjs";
+import { authorizedQueueReview } from "./review-store.mjs";
+import { registerReviewQueue } from "./review-queue.mjs";
 import { ownerProfile, whatsappStore } from "./owner-profile.mjs";
 import { registerIncomingNotices } from "./incoming-notices.mjs";
 import { actionPreviewText } from "./approval-copy.mjs";
@@ -30,7 +30,7 @@ const ACTIONS = new Set([
   "slack-actions",
 ]);
 function assertOwner(test, ctx, event) {
-  if (!test && authorizedWebReview(event, ctx)) return;
+  if (!test && authorizedQueueReview(event, ctx)) return;
   if (
     !test &&
     (ctx.requester?.channel !== "telegram" ||
@@ -38,7 +38,7 @@ function assertOwner(test, ctx, event) {
       ctx.requester?.senderIsOwner !== true)
   ) {
     throw new Error(
-      "External actions require a current request from the Telegram owner or an exact action bound to a verified owner in the local review. Background checks may prepare proposals only.",
+      "External actions require a current request from the Telegram owner or an exact action the verified owner opened from the review queue. Background checks may prepare proposals only.",
     );
   }
 }
@@ -231,7 +231,7 @@ export default {
   id: "secretary-action-preview",
   name: "Secretary action preview",
   register(api) {
-    registerInbox(api);
+    registerReviewQueue(api);
     registerConversationContext(api);
     registerHealthAlerts(api);
     registerIncomingContext(api);

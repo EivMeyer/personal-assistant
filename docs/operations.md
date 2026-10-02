@@ -1,6 +1,6 @@
 # Operations
 
-OpenClaw is the active runtime, with one Telegram poller per owner's bot. The
+OpenClaw is the active runtime, with one Telegram poller for the bot. The
 reviewed runtime/plugin versions are 2026.9.6; version-specific patches refuse
 unexpected implementations. Keep Astra/high and the finite tool policy unless
 the owner explicitly changes them. Check `openclaw health --json` after changes.
@@ -22,15 +22,14 @@ sender account, displays exact arguments, and requires native per-call approval.
 Gmail freshness ignores rotating attachment handles but retains content/metadata;
 Calendar and Docs writes use version conditions. Do not bypass these controls.
 
-Credentials, profiles, conversations and evidence live outside Git under each
-owner's home. Back up SQLite consistently, keep permissions private and do not
-copy one owner's state into another person's setup. Runtime templates are not
-personal memory. Run only the current inbox watcher, never the legacy bot daemon.
+Credentials, the owner profile, conversations and evidence live outside Git
+under the home directory. Back up SQLite consistently and keep permissions
+private. Runtime templates are not personal memory. Run only the current inbox watcher, never the legacy bot daemon.
 
 A LaunchAgent can keep the Mac awake on AC, but cannot provide service during a
 closed lid, deliberate sleep, shutdown or network loss. Always-on hosting requires
 a separately verified server, compatible binaries, private state transfer and a
-single-poller cutover. No server is provisioned by this repo's onboarding.
+single-poller cutover. This repo provisions no server.
 
 ## Runtime recovery
 
