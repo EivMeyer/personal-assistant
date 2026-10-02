@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WatchStore } from "../src/openclaw/watch-store.ts";
 import { GmailWatch } from "../src/openclaw/watch-gmail.ts";
-import { dispatchPending, pollDetector } from "../src/openclaw/watch-loop.ts";
+import {
+  dispatchPending,
+  pollDetector,
+  repeat,
+} from "../src/openclaw/watch-loop.ts";
 import { ApiError } from "../src/http.ts";
 const event = {
   source: "gmail-work",
@@ -10,6 +14,41 @@ const event = {
   thread: "thread",
   receivedAt: 10,
 };
+test("watch retries report safe failure categories and confirm recovery", async () => {
+  const abort = new AbortController();
+  const logs: Record<string, unknown>[] = [];
+  let calls = 0;
+  await repeat(
+    async () => {
+      if (!calls++)
+        throw new TypeError("secret token in URL", {
+          cause: { code: "ENETUNREACH" },
+        });
+      abort.abort();
+    },
+    1,
+    abort.signal,
+    (entry) => logs.push(entry),
+  );
+  assert.equal(logs[0]?.event, "watch_retry");
+  assert.equal(logs[0]?.code, "ENETUNREACH");
+  assert.equal(logs[1]?.event, "watch_recovered");
+  assert.ok(!JSON.stringify(logs).includes("secret"));
+});
+test("intentional watcher shutdown is not reported as a source failure", async () => {
+  const abort = new AbortController();
+  const logs: unknown[] = [];
+  await repeat(
+    async () => {
+      abort.abort();
+      throw Error("cancelled");
+    },
+    1,
+    abort.signal,
+    (entry) => logs.push(entry),
+  );
+  assert.deepEqual(logs, []);
+});
 test("watcher atomically deduplicates events and preserves pending wake across failed dispatch", async () => {
   const store = new WatchStore(":memory:");
   try {

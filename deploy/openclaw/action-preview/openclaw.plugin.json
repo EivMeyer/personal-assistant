@@ -7,7 +7,8 @@
     "onStartup": true
   },
   "contracts": {
-    "trustedToolPolicies": ["review-external-actions"]
+    "trustedToolPolicies": ["review-external-actions"],
+    "tools": ["secretary_inbox", "secretary_review"]
   },
   "configSchema": {
     "type": "object",

@@ -77,7 +77,7 @@ test("a media backlog cannot starve fresh messages from another source", (t) => 
   insert.run("slack", "Colleague", "dm", 100, 100);
   insert.run("gmail-personal", "personal", "thread", 101, 101);
   const first = nextIncomingBatch(db, 200);
-  assert.equal(first.length, 8);
+  assert.equal(first.length, 4);
   assert.ok(first.find((item) => item.id === "Colleague"));
   assert.equal(new Set(first.slice(0, 4).map((item) => item.source)).size, 4);
   const second = nextIncomingBatch(db, 201);

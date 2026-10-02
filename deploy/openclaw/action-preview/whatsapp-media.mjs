@@ -20,7 +20,7 @@ export const mediaTool = {
     openWorldHint: true,
   },
 };
-function imageMime(bytes) {
+export function imageMime(bytes) {
   if (bytes.subarray(0, 3).equals(Buffer.from([255, 216, 255])))
     return "image/jpeg";
   if (

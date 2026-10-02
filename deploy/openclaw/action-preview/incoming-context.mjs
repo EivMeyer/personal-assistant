@@ -30,7 +30,7 @@ export function nextIncomingBatch(db, now = Date.now()) {
       FROM events e LEFT JOIN incoming_attempts a USING(source,id)
       WHERE e.processedAt IS NULL AND COALESCE(a.retryAt,0)<=?
     ) SELECT source,id,thread,receivedAt FROM ranked
-      ORDER BY sourceRank,lastAttemptAt,detectedAt,source,id LIMIT 8`,
+      ORDER BY sourceRank,lastAttemptAt,detectedAt,source,id LIMIT 4`,
       )
       .all(now);
     const mark = db.prepare(`INSERT INTO incoming_attempts VALUES(?,?,1,?,?)

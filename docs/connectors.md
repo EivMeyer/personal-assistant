@@ -57,7 +57,13 @@ the owner profile. Verify the linked device JID before enabling writes. Keep the
 REST API bound to 127.0.0.1:8080; do not expose it on a public interface.
 
 Use `whatsapp-read.mjs` as `whatsapp-structured`, with `messages`, `media`, `av` in
-its tool filter. The AV reader verifies hashes, transcribes speech locally and
+its tool filter. For a queued message, pass `chat_jid` and `message_id` to
+`messages`; it returns chronological context and `older`/`newer` cursors. Continue
+with the returned message ID and direction in the same chat when more relevant
+context is needed. `limit` applies per side (15 by default). Read the latest chat
+messages separately to check subsequent replies. Date/offset scans remain available
+for periodic reconciliation, but cannot be combined with message-ID context.
+The AV reader verifies hashes, transcribes speech locally and
 returns video images in bounded chunks. Its Mac dependencies are FFmpeg/ffprobe
 under /opt/homebrew/bin and a Python 3.12 environment at
 `~/.local/share/secretary-runtime/media-venv`, installed from
@@ -85,3 +91,64 @@ plugin verifies owner ingress and sender identity, binds the exact argument prev
 and reserves a single-use action before backend execution. After approval it
 refreshes source snapshots and target versions. Unknown send outcomes are never
 blindly retried. Keep all those checks enabled during onboarding.
+
+## Authenticated GitHub reads
+
+`deploy/openclaw/action-preview/github-read.mjs <private-settings.json>` exposes
+one read-only MCP tool. Settings contain `ghPath` (absolute GitHub CLI path),
+`login` (verified owner's GitHub login), and `allowedOwners` (repository owner
+allowlist). It uses existing local GitHub CLI authentication, checks the account
+on every call, and permits only fixed GET routes for PRs, files, comments, reviews
+and CI evidence. Follow `next_page`; read source files at the PR head SHA.
+Register it as `github-read` and allow `github-read__read`; approval mode `approve`
+is appropriate only for this read-only server. No credentials belong in Git.
+
+## Slack attachment reads
+
+`deploy/openclaw/action-preview/slack-media.mjs <private-empty-settings.json>`
+exposes `media` for exact Slack file IDs. The existing company user token needs
+`files:read` in addition to its conversation scopes; adding the scope requires
+reauthorizing the existing app. Supply the verified company token explicitly as
+`SLACK_MCP_XOXP_TOKEN`, not an ambient token from another workspace. The reader
+checks the configured owner/workspace, bounds downloads, rejects off-host
+redirects, and provides immutable hashes, image chunks, and local audio/video
+analysis. Register `slack-media__media` as read-only. Missing authorization leaves
+attachments unread; never mark a blocked attachment as processed.
+
+## Discord server monitoring
+
+Create an owner-controlled, dedicated Discord bot. Enable Message Content Intent;
+server member and presence intents are unnecessary. Invite it to the intended server
+with View Channels and Read Message History only. Check its effective role permissions
+and channel overrides: inherited public permissions can still permit sends. Deny bot
+Send Messages, Send Messages in Threads, Add Reactions, and Create Threads when the
+server's everyone role grants them. No administrator or moderation permissions are
+needed. The connector exposes GET operations only, even if server roles are broader.
+
+Keep a mode-600 settings JSON outside Git containing tokenFile (a mode-600 bot-token
+file), botId, guildId, ownerId, and channelIds. Identity checks require a bot account
+and the configured application with Message Content enabled. Numeric source IDs must
+come from the verified server. The reader additionally rejects other guilds/channels.
+Register discord-read.mjs as discord-read using the reviewed Node 26 runtime (it
+imports the shared TypeScript API through native type stripping). Allow only
+read and media as read-only MCP tools. No inbound Discord channel is needed: owner
+instructions and notifications remain on Telegram.
+
+Add discord: {settingsFile, startAt} to the private watcher config. Pick an explicit
+backfill start time. It polls every 30 seconds, includes active and public archived
+threads/forum posts, skips join events and the bot's own messages, and preserves
+checkpoints on any failed scan. Old message edits are not a separate event stream;
+source-backed tasks are re-read during reconciliation. Private archived threads and
+personal DMs are outside this setup. Rate-limit responses establish a shared local
+cooldown before further API reads. Keep only one watcher active.
+
+Media downloads use the exact attachment from an authenticated message, preserve its
+signed CDN query, restrict the host/path, send no bot token to the CDN, bound bytes,
+and verify size/hash. Images and AV use the same full-chunk/window protocol as Slack;
+small UTF-8 text/log/JSON attachments are read directly. Unsupported media stays unread.
+
+After real channel/thread/attachment reads pass, enable the watcher and verify durable
+queue acknowledgement. A daily cron system-event wake containing DISCORD_DAILY_DIGEST
+can flush low-priority items at the owner's chosen local time (default 18:00). Check
+existing jobs to avoid duplicate schedules. Urgent feedback is independent of this
+schedule; public replies remain drafts for exact owner approval.

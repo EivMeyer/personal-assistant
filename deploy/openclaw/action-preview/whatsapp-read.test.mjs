@@ -41,3 +41,121 @@ test("ambiguous time and unsafe pagination fail instead of returning a misleadin
   assert.throws(() => readMessages(db, { limit: 101 }), /limit/);
   assert.throws(() => readMessages(db, { offset: -1 }), /offset/);
 });
+
+test("exact-message context jumps into a busy chat and expands without gaps", (t) => {
+  const db = setup(t);
+  const insert = db.prepare("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?)");
+  for (let i = 0; i < 1000; i++)
+    insert.run(
+      "m" + String(i).padStart(4, "0"),
+      "busy",
+      "sender",
+      "message " + i,
+      "2026-10-01T12:00:00Z",
+      i % 2,
+      "",
+      "",
+    );
+  const around = readMessages(db, {
+    chat_jid: "busy",
+    message_id: "m0500",
+    limit: 2,
+  });
+  assert.deepEqual(
+    around.messages.map((m) => m.id),
+    ["m0498", "m0499", "m0500", "m0501", "m0502"],
+  );
+  assert.equal(around.messages[1].is_from_me, true);
+  assert.equal(around.messages[2].timestamp_utc, "2026-10-01T12:00:00.000Z");
+  const older = readMessages(db, {
+    chat_jid: "busy",
+    ...around.older,
+    limit: 2,
+  });
+  assert.deepEqual(
+    older.messages.map((m) => m.id),
+    ["m0496", "m0497"],
+  );
+  const newer = readMessages(db, {
+    chat_jid: "busy",
+    ...around.newer,
+    limit: 2,
+  });
+  assert.deepEqual(
+    newer.messages.map((m) => m.id),
+    ["m0503", "m0504"],
+  );
+  assert.equal(
+    readMessages(db, { chat_jid: "busy", message_id: "m0000", limit: 2 }).older,
+    null,
+  );
+  assert.equal(
+    readMessages(db, { chat_jid: "busy", message_id: "m0999", limit: 2 }).newer,
+    null,
+  );
+  const end = readMessages(db, {
+    chat_jid: "busy",
+    message_id: "m0998",
+    direction: "after",
+    limit: 2,
+  });
+  assert.deepEqual(
+    end.messages.map((m) => m.id),
+    ["m0999"],
+  );
+  assert.equal(end.newer, null);
+});
+test("context fails closed for a missing or wrong-chat ID and incompatible scan arguments", (t) => {
+  const db = setup(t);
+  assert.throws(() => readMessages(db, { message_id: "one" }), /chat_jid/);
+  for (const message_id of ["", null, 123])
+    assert.throws(
+      () => readMessages(db, { chat_jid: "chat", message_id }),
+      /chat_jid/,
+    );
+  assert.throws(
+    () => readMessages(db, { chat_jid: "other", message_id: "one" }),
+    /not found/,
+  );
+  assert.throws(
+    () => readMessages(db, { chat_jid: "chat", message_id: "missing" }),
+    /not found/,
+  );
+  for (const extra of [{ after: "2026-09-25T06:00:00Z" }, { offset: 0 }])
+    assert.throws(
+      () => readMessages(db, { chat_jid: "chat", message_id: "one", ...extra }),
+      /not after\/offset/,
+    );
+  assert.throws(
+    () =>
+      readMessages(db, {
+        chat_jid: "chat",
+        message_id: "one",
+        direction: "invalid",
+      }),
+    /direction/,
+  );
+  assert.throws(
+    () => readMessages(db, { direction: "after" }),
+    /requires message_id/,
+  );
+});
+test("context orders mixed timezone timestamps by instant and preserves exact quoted content", (t) => {
+  const db = setup(t);
+  db.exec(
+    "INSERT INTO messages VALUES ('earlier','chat','sender','quoted source','2026-09-25T08:59:00+03:00',0,'image','x.jpg')",
+  );
+  const result = readMessages(db, {
+    chat_jid: "chat",
+    message_id: "one",
+    limit: 1,
+  });
+  assert.deepEqual(
+    result.messages.map((m) => m.id),
+    ["earlier", "one", "two"],
+  );
+  assert.equal(result.messages[0].content, "quoted source");
+  assert.equal(result.messages[0].media_type, "image");
+  assert.equal(result.older, null);
+  assert.equal(result.newer, null);
+});

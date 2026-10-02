@@ -8,6 +8,8 @@ import { GmailWatch } from "./watch-gmail.ts";
 import { SlackWatch } from "./watch-slack.ts";
 import { WhatsAppWatch } from "./watch-whatsapp.ts";
 import { repeat, pollDetector, dispatchPending } from "./watch-loop.ts";
+import { DiscordApi, discordSettings } from "./discord-api.ts";
+import { DiscordWatch } from "./watch-discord.ts";
 const schema = z.object({
   database: z.string(),
   wakeUrl: z
@@ -24,6 +26,9 @@ const schema = z.object({
     z.object({ source: z.string(), email: z.email(), credentials: z.string() }),
   ),
   whatsappDatabase: z.string().optional(),
+  discord: z
+    .object({ settingsFile: z.string(), startAt: z.iso.datetime() })
+    .optional(),
   slack: z
     .object({ envFile: z.string(), user: z.string(), team: z.string() })
     .optional(),
@@ -100,6 +105,21 @@ const slack = config.slack
 const whatsapp = config.whatsappDatabase
   ? new WhatsAppWatch(config.whatsappDatabase, Date.parse(config.startAt))
   : undefined;
+const discordConfig = config.discord
+  ? discordSettings.parse(
+      JSON.parse(readFileSync(config.discord.settingsFile, "utf8")),
+    )
+  : undefined;
+const discord =
+  discordConfig && config.discord
+    ? new DiscordWatch(
+        new DiscordApi(
+          discordConfig,
+          readFileSync(discordConfig.tokenFile, "utf8"),
+        ),
+        Date.parse(config.discord.startAt),
+      )
+    : undefined;
 try {
   const jobs = detectors.map((detector) =>
     repeat(
@@ -139,6 +159,19 @@ try {
         (event) => log({ ...event, source: slack.source }),
       ),
     );
+  if (discord)
+    jobs.push(
+      repeat(
+        async () => {
+          const count = await pollDetector(discord, store);
+          if (count)
+            log({ event: "incoming_detected", source: discord.source, count });
+        },
+        30000,
+        abort.signal,
+        (event) => log({ ...event, source: "discord" }),
+      ),
+    );
   jobs.push(
     repeat(
       async () => {
@@ -154,6 +187,7 @@ try {
     gmailIntervalMs: 2000,
     whatsappIntervalMs: 500,
     slackIntervalMs: slack ? 10000 : null,
+    discordIntervalMs: discord ? 30000 : null,
   });
   await Promise.all(jobs);
 } finally {

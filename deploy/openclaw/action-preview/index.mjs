@@ -1,3 +1,5 @@
+import { authorizedWebReview } from "./review-store.mjs";
+import { registerInbox } from "./inbox.mjs";
 import { ownerProfile, whatsappStore } from "./owner-profile.mjs";
 import { registerIncomingNotices } from "./incoming-notices.mjs";
 import { actionPreviewText } from "./approval-copy.mjs";
@@ -27,7 +29,8 @@ const ACTIONS = new Set([
   "whatsapp-actions",
   "slack-actions",
 ]);
-function assertOwner(test, ctx) {
+function assertOwner(test, ctx, event) {
+  if (!test && authorizedWebReview(event, ctx)) return;
   if (
     !test &&
     (ctx.requester?.channel !== "telegram" ||
@@ -35,7 +38,7 @@ function assertOwner(test, ctx) {
       ctx.requester?.senderIsOwner !== true)
   ) {
     throw new Error(
-      "External actions require a current request from the Telegram owner. Background checks may prepare proposals only.",
+      "External actions require a current request from the Telegram owner or an exact action bound to a verified owner in the local review. Background checks may prepare proposals only.",
     );
   }
 }
@@ -49,7 +52,6 @@ function assertNativeApproval(server, config) {
   }
 }
 function validateAction(server, test, params, ctx, config) {
-  assertOwner(test, ctx);
   assertNativeApproval(server, config);
   if (
     !test &&
@@ -78,6 +80,7 @@ export function planPreview(event, ctx, config, destination) {
   if (!ACTIONS.has(server) && server !== "setup-approval-fixture") return null;
   const test = server === "setup-approval-fixture";
   const params = event.params;
+  assertOwner(test, ctx, event);
   validateAction(server, test, params, ctx, config);
   const payload = JSON.stringify(params, null, 2);
   if (payload.length > 24000)
@@ -228,6 +231,7 @@ export default {
   id: "secretary-action-preview",
   name: "Secretary action preview",
   register(api) {
+    registerInbox(api);
     registerConversationContext(api);
     registerHealthAlerts(api);
     registerIncomingContext(api);

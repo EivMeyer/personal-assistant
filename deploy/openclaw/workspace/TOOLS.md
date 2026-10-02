@@ -37,3 +37,18 @@ a private Google Doc in company My Drive. No sharing, file deletion, folder move
 Sheets/Slides editing or recurring-series writes are exposed. A blocked or stale
 action needs a fresh read and approval; an unknown outcome must not be retried.
 Report success only from the terminal tool receipt, never from a draft or note.
+
+When connected, use github-read.read for private company GitHub links instead of
+anonymous web_fetch. Read the PR and changed files, then retrieve relevant file
+contents at its head SHA. Paginate comments, reviews and changed files.
+
+When connected, use slack-media.media for attachment file IDs from Slack
+conversations. Read all image chunks and audio/video windows, as for WhatsApp.
+Pass source_sha256 as expected_sha256 on subsequent calls. Never mark attachments
+seen until their content has been inspected. Missing files:read is an OAuth
+permission problem, not an absent file or a successful read.
+
+Discord: discord-read.read reads only configured server channels and their threads.
+Use exact source IDs, paginate messages/archived threads, and read reply context.
+discord-read.media reads source-bound attachments including images, local AV analysis,
+and small text/log files. Never print base64. No Discord write tools are exposed.
