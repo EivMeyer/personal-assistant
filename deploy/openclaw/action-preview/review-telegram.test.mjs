@@ -195,6 +195,21 @@ test("replying to a question answers it; other replies go to the assistant", asy
   assert.equal(await reply(), undefined);
 });
 
+test("WhatsApp drafts label the message field", () => {
+  const message = itemMessage({
+    state: "ready",
+    title: "Group follow-up",
+    id: "00000000-0000-0000-0000-000000000000",
+    version: 1,
+    action: {
+      server: "whatsapp-actions",
+      tool: "send_message",
+      args: { recipient: "123@g.us", message: "Hello", timeoutMs: 210000 },
+    },
+  });
+  assert.match(message.text, /\nMessage: Hello/);
+});
+
 test("long drafts are shortened in the chat, never in the action", () => {
   const body = "x".repeat(6000);
   const message = itemMessage({

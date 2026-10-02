@@ -11,6 +11,7 @@ const LABELS = {
   subject: "Subject",
   body: "Message",
   text: "Message",
+  message: "Message",
   from: "From",
   channel_id: "To",
   recipient: "To",
