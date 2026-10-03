@@ -60,3 +60,26 @@ loop.
 command `/gateway_dashboard`, avoiding a collision with the built-in session
 `/dashboard`. Its owner authorization and handler are unchanged. All three
 runtime patches must be reapplied after replacing the reviewed package.
+
+## Sleep recovery and bounded checks
+
+`heartbeat-resume-patch.mjs <openclaw-package-root>` defers heartbeat starts until
+the host has been responsive for 30 seconds and Telegram is reachable. A host
+suspension aborts the current background read and defers its result; it does not
+acknowledge the queue or send a stale failure alert. Direct owner conversations
+and external-action approval rules are unchanged. Lower runtime logs can still
+record cancellation diagnostics during sleep. Reapply this version-checked patch
+after replacing the runtime or moving the checkout.
+
+Every heartbeat receives the durable queue policy, including empty batches. The
+watcher owns inbox discovery; the model does not repeatedly rescan a blocked
+historical page. Empty batches reconcile one open task. A three-minute working
+deadline reserves time to save progress before the existing four-minute timeout.
+A tool hook blocks new source reads after that deadline while allowing state saves,
+review preparation and the final heartbeat response; direct owner turns are exempt.
+This limits work per turn, not the amount of source context needed for an action.
+
+WhatsApp message pages shrink to fit the tool result budget. Large message text
+uses exact-ID, hash-checked continuation pages through `text`. Gmail's
+`secretary_gmail_read` decodes HTML-only messages to text and provides complete
+hash-checked pages. Attachments are listed separately and are not implicitly read.

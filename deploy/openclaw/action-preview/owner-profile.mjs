@@ -10,12 +10,7 @@ export const profileSchema = z
       .min(1)
       .max(80)
       .regex(/^[^\r\n]+$/),
-    workEmail: z
-      .email()
-      .refine(
-        (s) => s.endsWith("@theopenengine.com"),
-        "Use your own company email",
-      ),
+    workEmail: z.email(),
     telegramUserId: z.string().regex(/^[1-9][0-9]{4,19}$/),
     timezone: z.string().refine((s) => {
       try {

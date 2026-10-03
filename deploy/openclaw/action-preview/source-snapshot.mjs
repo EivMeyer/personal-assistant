@@ -22,7 +22,7 @@ export async function requestJson(url, options = {}) {
     throw Error("Source freshness check failed: " + value.error);
   return value;
 }
-async function gmailClient(config, source) {
+export async function gmailClient(config, source) {
   const env = config.mcp.servers[source].env;
   const keys = JSON.parse(await readFile(env.GMAIL_OAUTH_PATH, "utf8"));
   const auth = keys.installed ?? keys.web;

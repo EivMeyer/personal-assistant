@@ -14,7 +14,7 @@ The runtime has no built-in owner. It reads a private profile from
 ```json
 {
   "name": "Owner name",
-  "workEmail": "owner@theopenengine.com",
+  "workEmail": "owner@example.com",
   "telegramUserId": "123456789",
   "timezone": "Europe/Oslo"
 }
@@ -25,6 +25,10 @@ The runtime has no built-in owner. It reads a private profile from
 account. `whatsappPhone` is the owner's international number and
 `whatsappStoreDir` the absolute path to the paired bridge store. Unknown fields
 are rejected; tokens never belong here. A missing or invalid profile fails closed.
+
+`workEmail` is your installation’s verified sending account. Other domains are
+accepted; outgoing tools still verify the actual account against this exact address.
+A second personal Gmail account is read-only.
 
 The Telegram bot token lives in `~/.openclaw/telegram-token` (mode 600), and
 `channels.telegram.allowFrom` holds only the owner's ID. `npm run doctor` checks

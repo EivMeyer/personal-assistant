@@ -14,6 +14,7 @@ import {
   registerReceiptDelivery,
   registerAbandonedRunStatus,
 } from "./receipt-delivery.mjs";
+import { registerGmailRead } from "./gmail-read.mjs";
 import { registerHealthAlerts } from "./health-alerts.mjs";
 import { registerIncomingContext } from "./incoming-context.mjs";
 import { registerConversationContext } from "./conversation-context.mjs";
@@ -234,6 +235,7 @@ export default {
     registerReviewQueue(api);
     registerConversationContext(api);
     registerHealthAlerts(api);
+    registerGmailRead(api);
     registerIncomingContext(api);
     registerIncomingNotices(api);
     const store = new ActionStore();

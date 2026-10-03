@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { readMessages } from "./whatsapp-read.mjs";
+import { readMessages, readMessageText } from "./whatsapp-read.mjs";
 function setup(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -158,4 +158,75 @@ test("context orders mixed timezone timestamps by instant and preserves exact qu
   assert.equal(result.messages[0].media_type, "image");
   assert.equal(result.older, null);
   assert.equal(result.newer, null);
+});
+
+test("oversized WhatsApp pages remain valid and continuations lose no messages or text", (t) => {
+  const db = setup(t);
+  const insert = db.prepare("INSERT INTO messages VALUES(?,?,?,?,?,?,?,?)");
+  const body = '"\n😀'.repeat(2500);
+  for (let i = 0; i < 30; i++)
+    insert.run(
+      "large" + i,
+      "large-chat",
+      "sender",
+      body,
+      "2026-10-01T12:00:00Z",
+      0,
+      "",
+      "",
+    );
+  let offset = 0;
+  const ids = [];
+  do {
+    const page = readMessages(db, {
+      chat_jid: "large-chat",
+      limit: 100,
+      offset,
+    });
+    assert.ok(JSON.stringify(page).length < 48000);
+    ids.push(...page.messages.map((m) => m.id));
+    offset = page.next_offset;
+  } while (offset !== null);
+  assert.equal(new Set(ids).size, 30);
+  const around = readMessages(db, {
+    chat_jid: "large-chat",
+    message_id: "large15",
+    limit: 100,
+  });
+  assert.ok(JSON.stringify(around).length < 48000);
+  assert.ok(around.messages.find((m) => m.id === "large15"));
+  let text = "",
+    cursor = 0,
+    sha;
+  do {
+    const page = readMessageText(db, {
+      chat_jid: "large-chat",
+      message_id: "large15",
+      offset: cursor,
+      expected_sha256: sha,
+    });
+    text += page.text;
+    cursor = page.next_offset;
+    sha = page.sha256;
+  } while (cursor !== null);
+  assert.equal(text, body);
+  assert.throws(
+    () =>
+      readMessageText(db, {
+        chat_jid: "large-chat",
+        message_id: "large15",
+        offset: 4000,
+      }),
+    /expected_sha256/,
+  );
+  db.prepare("UPDATE messages SET content='edited' WHERE id='large15'").run();
+  assert.throws(
+    () =>
+      readMessageText(db, {
+        chat_jid: "large-chat",
+        message_id: "large15",
+        expected_sha256: sha,
+      }),
+    /changed/,
+  );
 });

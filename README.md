@@ -7,6 +7,13 @@ changes, and asks for exact approval in Telegram before any external action.
 This is a personal tool, not a product or a team setup. Credentials, the owner
 profile, memories and source evidence live outside Git.
 
+## Try it with your own accounts
+
+Start with the [onboarding guide](docs/onboarding.md). It covers the pinned runtime,
+your Telegram bot, owner profile, connectors, background monitoring and verification.
+Bring your own accounts and credentials. The public repository contains no live
+configuration, inboxes or personal memory.
+
 ## What works
 
 - Telegram conversation, reminders and a review queue: one message per prepared

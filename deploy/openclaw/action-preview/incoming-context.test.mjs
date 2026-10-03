@@ -6,6 +6,7 @@ import {
   incomingPrompt,
   completeIncoming,
   nextIncomingBatch,
+  backgroundToolBudget,
 } from "./incoming-context.mjs";
 const ctx = {
   agentId: "main",
@@ -141,5 +142,58 @@ test("legacy Slack timestamp acknowledgements match routed channel-prefixed IDs"
     db.prepare("SELECT processedAt FROM events WHERE source='gmail-work'").get()
       .processedAt,
     null,
+  );
+});
+
+test("empty durable queue still supplies bounded policy and a stable deadline", (t) => {
+  const db = setup(t);
+  db.exec("DELETE FROM events");
+  const batches = new Map();
+  const first = incomingPrompt(db, ctx, batches);
+  assert.match(first.prependContext, /SECRETARY_INCOMING_EVENTS \[\]/);
+  assert.match(first.prependContext, /BACKGROUND_DEADLINE/);
+  assert.match(first.prependContext, /Do not repeat a broad/);
+  assert.deepEqual(incomingPrompt(db, ctx, batches), first);
+});
+
+test("background budget stops new reads but permits saving and never affects owner turns", () => {
+  const batches = new Map([["run", { deadline: 100, events: [] }]]);
+  assert.equal(
+    backgroundToolBudget(
+      { toolName: "gmail-work__read_email" },
+      ctx,
+      batches,
+      99,
+    ),
+    undefined,
+  );
+  assert.equal(
+    backgroundToolBudget(
+      { toolName: "gmail-work__read_email" },
+      ctx,
+      batches,
+      100,
+    ).block,
+    true,
+  );
+  for (const toolName of [
+    "read",
+    "edit",
+    "write",
+    "secretary_review",
+    "heartbeat_respond",
+  ])
+    assert.equal(
+      backgroundToolBudget({ toolName }, ctx, batches, 101),
+      undefined,
+    );
+  assert.equal(
+    backgroundToolBudget(
+      { toolName: "gmail-work__read_email" },
+      { ...ctx, sessionKey: "agent:main:main" },
+      batches,
+      101,
+    ),
+    undefined,
   );
 });

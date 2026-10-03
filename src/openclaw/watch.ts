@@ -48,6 +48,7 @@ process.once("SIGINT", () => abort.abort());
 const log = (event: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), ...event }));
 function gmailWatches(): GmailWatch[] {
+  if (!config.gmail.length) return [];
   const raw = JSON.parse(readFileSync(config.oauthKeys, "utf8"));
   const keys = raw.installed ?? raw.web;
   return config.gmail.map((account) => {

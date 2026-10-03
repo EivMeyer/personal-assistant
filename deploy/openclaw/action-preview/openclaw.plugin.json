@@ -8,7 +8,7 @@
   },
   "contracts": {
     "trustedToolPolicies": ["review-external-actions"],
-    "tools": ["secretary_review"]
+    "tools": ["secretary_review", "secretary_gmail_read"]
   },
   "configSchema": {
     "type": "object",

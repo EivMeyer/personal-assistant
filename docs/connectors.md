@@ -51,18 +51,22 @@ is configured. A fresh incoming DM is needed for a real arrival-latency test.
 
 ## WhatsApp
 
-Install your own local WhatsApp bridge and pair it through your phone's linked
+Install your own [local WhatsApp bridge](https://github.com/lharries/whatsapp-mcp) and pair it through your phone's linked
 devices UI. Store your international phone and private bridge-store directory in
 the owner profile. Verify the linked device JID before enabling writes. Keep the
 REST API bound to 127.0.0.1:8080; do not expose it on a public interface.
 
-Use `whatsapp-read.mjs` as `whatsapp-structured`, with `messages`, `media`, `av` in
+Use `whatsapp-read.mjs` as `whatsapp-structured`, with `messages`, `text`, `media`, `av` in
 its tool filter. For a queued message, pass `chat_jid` and `message_id` to
 `messages`; it returns chronological context and `older`/`newer` cursors. Continue
 with the returned message ID and direction in the same chat when more relevant
 context is needed. `limit` applies per side (15 by default). Read the latest chat
 messages separately to check subsequent replies. Date/offset scans remain available
 for periodic reconciliation, but cannot be combined with message-ID context.
+Large message bodies have `content_complete: false`; finish them with the `text`
+tool using the exact IDs, returned offset and content hash. Message pages may be
+smaller than the requested limit; follow the returned cursors without assuming
+a fixed page size.
 The AV reader verifies hashes, transcribes speech locally and
 returns video images in bounded chunks. Its Mac dependencies are FFmpeg/ffprobe
 under /opt/homebrew/bin and a Python 3.12 environment at
