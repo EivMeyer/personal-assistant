@@ -93,6 +93,30 @@ test("Discord text and video retain exact provenance and enforce hashes and wind
   assert.equal(result.next_start_seconds, 30);
   assert.equal(result.source_sha256, hash);
 });
+test("Discord attachments that can never be opened return a complete result", async () => {
+  for (const file of [
+    { bytes: Buffer.from("PK"), name: "bundle.zip", kind: "application" },
+    { bytes: Buffer.from([0xff, 0xfe, 0xfd]), name: "app.log", kind: "text" },
+  ]) {
+    const result = await readDiscordMedia(args, api, {
+      source: async () => ({ ...file, sha256: hash }),
+    });
+    assert.equal(result.readable, false);
+    assert.equal(result.next_offset, null);
+    assert.equal(result.attachment_id, args.attachment_id);
+  }
+  const image = await readDiscordMedia(args, api, {
+    source: async () => ({
+      bytes: Buffer.from("png"),
+      name: "shot.png",
+      kind: "image",
+      sha256: hash,
+    }),
+    normalize: async () => Buffer.from([255, 216, 255, 1]),
+  });
+  assert.equal(image.mime_type, "image/jpeg");
+  assert.equal(image.source_sha256, hash);
+});
 test("Discord reader rejects write-shaped and extra arguments, exposes pagination", async () => {
   await assert.rejects(
     discordRead({ resource: "send", channel_id: args.channel_id }, api),

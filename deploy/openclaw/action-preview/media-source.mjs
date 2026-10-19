@@ -1,4 +1,5 @@
 import { whatsappStore } from "./owner-profile.mjs";
+import { UnreadableMedia } from "./media-unreadable.mjs";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, sep } from "node:path";
@@ -24,8 +25,8 @@ function sourceMedia(db, args) {
     .get(args.message_id, args.chat_jid);
   if (!row) throw Error("Message not found in that chat");
   if (!["image", "audio", "video"].includes(row.media_type))
-    throw Error(
-      "Unsupported media type; leave unread and continue other messages",
+    throw new UnreadableMedia(
+      "Unsupported WhatsApp attachment type: " + (row.media_type || "unknown"),
     );
   if (!row.file_sha256 || row.file_sha256.length !== 32)
     throw Error("Missing source image hash");
@@ -54,8 +55,9 @@ async function verifiedBytes(downloadedPath, hash, options) {
   if (!path.startsWith(root + sep))
     throw Error("Media path is outside the media store");
   const info = await stat(path);
-  if (!info.isFile() || info.size > options.maxBytes)
-    throw Error("Media exceeds the read limit");
+  if (!info.isFile()) throw Error("Media path is not a file");
+  if (info.size > options.maxBytes)
+    throw new UnreadableMedia("Media exceeds the read limit");
   const bytes = await readFile(path);
   if (!createHash("sha256").update(bytes).digest().equals(Buffer.from(hash)))
     throw Error("Media hash does not match this source message");

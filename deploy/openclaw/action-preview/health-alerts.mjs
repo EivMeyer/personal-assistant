@@ -25,6 +25,30 @@ export function healthAlert(event, ctx, lastSent, now) {
       "Background checks failed. Some incoming messages may still be waiting for review.",
   };
 }
+// OpenClaw posts "⚠️ <tool> failed" whenever a tool errored during a heartbeat that
+// otherwise stayed quiet, even when the check handled the error and will retry the
+// item. Those bare notices give the owner nothing to act on. Only one-line tool
+// notices from background runs are dropped; run, login and system failures still
+// arrive, and an unrecognised format is delivered unchanged.
+const TOOL_WARNING =
+  /^⚠️ (?!(?:Agent|Model|LLM|Memory|Heartbeat|Command|Restart|Update|OpenClaw|Plugin|Gateway|Context|Config|ACP|CLI)\b)[^\n]{1,160}? (?:failed|blocked|timed out after [\d.]+s)(?:$|[\s:.;(])/u;
+export function backgroundToolWarning(event, ctx) {
+  if (
+    ctx.channelId !== "telegram" ||
+    String(event.to).replace(/^telegram:/, "") !==
+      ownerProfile().telegramUserId ||
+    !/:heartbeat$/.test(ctx.sessionKey ?? "") ||
+    typeof event.content !== "string" ||
+    event.content.includes("\n") ||
+    !TOOL_WARNING.test(event.content)
+  )
+    return;
+  return {
+    cancel: true,
+    cancelReason:
+      "Handled background tool error; unread items stay queued for retry.",
+  };
+}
 export function registerHealthAlerts(api) {
   const db = new DatabaseSync(
     join(homedir(), ".local/share/secretary-context/visible.sqlite"),
@@ -36,7 +60,10 @@ export function registerHealthAlerts(api) {
     const last = db
       .prepare("SELECT sentAt FROM health_alerts WHERE name='background'")
       .get()?.sentAt;
-    return healthAlert(event, ctx, last, Date.now());
+    return (
+      healthAlert(event, ctx, last, Date.now()) ??
+      backgroundToolWarning(event, ctx)
+    );
   });
   api.on("message_sent", (event, ctx) => {
     if (

@@ -87,6 +87,10 @@ review preparation and the final heartbeat response; direct owner turns are exem
 This limits work per turn, not the amount of source context needed for an action.
 Background failures also defer the next check for five minutes, including wakes
 from incoming messages, so a broken provider cannot flood Telegram with errors.
+OpenClaw posts a bare `⚠️ <tool> failed` notice when a tool errored during an
+otherwise quiet heartbeat. `health-alerts.mjs` drops those one-line tool notices
+for heartbeat sessions, since the check already keeps the item queued for retry.
+Run, login and system failures, and any unrecognised format, are still delivered.
 
 WhatsApp message pages shrink to fit the tool result budget. Large message text
 uses exact-ID, hash-checked continuation pages through `text`. Gmail's

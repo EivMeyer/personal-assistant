@@ -18,6 +18,7 @@ import { registerGmailRead } from "./gmail-read.mjs";
 import { registerHealthAlerts } from "./health-alerts.mjs";
 import { registerIncomingContext } from "./incoming-context.mjs";
 import { registerConversationContext } from "./conversation-context.mjs";
+import { QueueEchoGuard } from "./queue-echo-guard.mjs";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
@@ -232,7 +233,8 @@ export default {
   id: "secretary-action-preview",
   name: "Secretary action preview",
   register(api) {
-    registerReviewQueue(api);
+    const echoGuard = new QueueEchoGuard();
+    registerReviewQueue(api, { onStaged: (ctx) => echoGuard.staged(ctx) });
     registerConversationContext(api);
     registerHealthAlerts(api);
     registerGmailRead(api);
@@ -241,8 +243,10 @@ export default {
     const store = new ActionStore();
     registerReceiptDelivery(api, store);
     registerAbandonedRunStatus(api, store);
-    api.on("before_agent_finalize", (event, ctx) =>
-      blockPrematureFinal(event, ctx, store),
+    api.on(
+      "before_agent_finalize",
+      (event, ctx) =>
+        blockPrematureFinal(event, ctx, store) ?? echoGuard.check(event, ctx),
     );
     api.registerTrustedToolPolicy({
       id: "review-external-actions",

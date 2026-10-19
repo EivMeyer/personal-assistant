@@ -79,6 +79,16 @@ and cache filenames include message identity. Upstream/mirror versions can diffe
 run a real download/hash check before claiming media reads work. Never acknowledge
 an unread or failed source just to clear the queue.
 
+Image readers (WhatsApp, Slack and Discord) re-encode every image with macOS `sips`
+as an 8-bit JPEG no larger than 1600 pixels on its long edge, cached by source hash
+under `~/.local/share/secretary-media`. A raw phone screenshot can take 100+ chunk
+calls and still fail to render; the converted copy takes a few. Results keep the
+original `source_sha256`. An attachment that can never be opened (unsupported type,
+undecodable image, over the size limit) returns `readable: false` instead of an
+error. That result is final, so the message can be marked read; retrying it would
+only repeat the same failure on every check. Network, auth and local tool failures
+stay errors and remain queued for retry.
+
 ## Background watcher and action gate
 
 The watcher entrypoint is `dist/openclaw/watch.js`; its config schema lives in
@@ -117,7 +127,8 @@ reauthorizing the existing app. Supply the verified company token explicitly as
 checks the configured owner/workspace, bounds downloads, rejects off-host
 redirects, and provides immutable hashes, image chunks, and local audio/video
 analysis. Register `slack-media__media` as read-only. Missing authorization leaves
-attachments unread; never mark a blocked attachment as processed.
+attachments unread; never mark a blocked attachment as processed. Non-media files
+and files over 100 MiB return `readable: false` without being downloaded.
 
 ## Discord server monitoring
 
@@ -149,7 +160,8 @@ cooldown before further API reads. Keep only one watcher active.
 Media downloads use the exact attachment from an authenticated message, preserve its
 signed CDN query, restrict the host/path, send no bot token to the CDN, bound bytes,
 and verify size/hash. Images and AV use the same full-chunk/window protocol as Slack;
-small UTF-8 text/log/JSON attachments are read directly. Unsupported media stays unread.
+small UTF-8 text/log/JSON attachments are read directly. Other attachments return
+`readable: false`.
 
 After real channel/thread/attachment reads pass, enable the watcher and verify durable
 queue acknowledgement. A daily cron system-event wake containing DISCORD_DAILY_DIGEST

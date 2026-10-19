@@ -1,5 +1,6 @@
 import { verifiedMedia, imageChunk } from "./media-source.mjs";
 import { analyzeAV, videoFrame } from "./media-av.mjs";
+import { orUnreadable } from "./media-unreadable.mjs";
 
 export const avTool = {
   name: "av",
@@ -40,24 +41,29 @@ export async function readAV(db, args, options = {}) {
   validateWindow(start_seconds, offset);
   if (frame_seconds !== undefined && start_seconds !== 0)
     throw Error("Use either a window or a frame timestamp");
-  const source = await verifiedMedia(db, ids, {
-    ...options,
-    kind: frame_seconds === undefined ? ["audio", "video"] : ["video"],
-    maxBytes: 100 * 1024 * 1024,
-  });
-  const result = await readSelection(
-    source,
-    { start_seconds, frame_seconds },
-    options,
+  const payload = await orUnreadable(
+    async () => {
+      const source = await verifiedMedia(db, ids, {
+        ...options,
+        kind: frame_seconds === undefined ? ["audio", "video"] : ["video"],
+        maxBytes: 100 * 1024 * 1024,
+      });
+      const result = await readSelection(
+        source,
+        { start_seconds, frame_seconds },
+        options,
+      );
+      if (!result.image && offset) throw Error("Audio has no image chunks");
+      return result.image
+        ? imageChunk(result.image, offset, {
+            ...result.metadata,
+            ...ids,
+            mime_type: "image/jpeg",
+          })
+        : { ...result.metadata, ...ids, next_offset: null };
+    },
+    { source: "untrusted WhatsApp audio/video", ...ids },
   );
-  if (!result.image && offset) throw Error("Audio has no image chunks");
-  const payload = result.image
-    ? imageChunk(result.image, offset, {
-        ...result.metadata,
-        ...ids,
-        mime_type: "image/jpeg",
-      })
-    : { ...result.metadata, ...ids, next_offset: null };
   return { content: [{ type: "text", text: JSON.stringify(payload) }] };
 }
 

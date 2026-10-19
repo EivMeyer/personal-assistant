@@ -1,5 +1,6 @@
 import { imageChunk } from "./media-source.mjs";
-import { imageMime } from "./whatsapp-media.mjs";
+import { normalizedImage } from "./image-normalize.mjs";
+import { orUnreadable } from "./media-unreadable.mjs";
 export async function boundedAttachmentBody(response, limit, label) {
   if (
     !response.ok ||
@@ -23,11 +24,19 @@ export async function boundedAttachmentBody(response, limit, label) {
   }
   return Buffer.concat(chunks);
 }
-export function readImageAttachment(source, args, identity) {
+export async function readImageAttachment(
+  source,
+  args,
+  identity,
+  normalize = normalizedImage,
+) {
   if (args.start_seconds || args.frame_seconds !== undefined)
     throw Error("Images have no time windows");
-  return imageChunk(source.bytes, args.offset, {
-    ...identity,
-    mime_type: imageMime(source.bytes),
-  });
+  return orUnreadable(async () => {
+    const image = await normalize(source.bytes, source.sha256);
+    return imageChunk(image, args.offset, {
+      ...identity,
+      mime_type: "image/jpeg",
+    });
+  }, identity);
 }

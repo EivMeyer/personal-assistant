@@ -53,11 +53,18 @@ async function fileMetadata(fileId, token, request) {
     typeof file.url_private_download !== "string"
   )
     throw Error("Slack file is unavailable to the verified account");
-  if (!Number.isFinite(file.size) || file.size <= 0 || file.size > LIMIT)
-    throw Error("Slack attachment exceeds the supported size");
+  if (!Number.isFinite(file.size) || file.size <= 0)
+    throw Error("Slack attachment has no readable size");
   const kind = String(file.mimetype).split("/")[0];
+  // Permanent for this file, so callers report it once instead of retrying.
   if (!["image", "audio", "video"].includes(kind))
-    throw Error("Unsupported Slack media type");
+    return { file, kind, unreadable: "Unsupported Slack attachment type" };
+  if (file.size > LIMIT)
+    return {
+      file,
+      kind,
+      unreadable: "Slack attachment exceeds the 100 MiB limit",
+    };
   return { file, kind };
 }
 export async function verifiedSlackFile(fileId, options = {}) {
@@ -71,19 +78,29 @@ export async function verifiedSlackFile(fileId, options = {}) {
   const cache = options.cache ?? cached;
   const prior = cache.get(fileId);
   if (prior && Date.now() - prior.capturedAt < 300000) return prior;
-  const { file, kind } = await fileMetadata(fileId, token, request);
-  const bytes = await download(file.url_private_download, token, request);
-  if (bytes.length !== file.size)
-    throw Error("Slack attachment size does not match its metadata");
-  const result = {
-    bytes,
-    kind,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    fileId,
-    name: file.name,
-    capturedAt: Date.now(),
-  };
+  const result = await readSlackFile(fileId, token, request);
   if (cache.size >= 2) cache.delete(cache.keys().next().value);
   cache.set(fileId, result);
   return result;
+}
+async function readSlackFile(fileId, token, request) {
+  const { file, kind, unreadable } = await fileMetadata(fileId, token, request);
+  const identity = { kind, fileId, name: file.name };
+  if (unreadable)
+    return {
+      ...identity,
+      unreadable,
+      mimeType: file.mimetype,
+      size: file.size,
+      capturedAt: Date.now(),
+    };
+  const bytes = await download(file.url_private_download, token, request);
+  if (bytes.length !== file.size)
+    throw Error("Slack attachment size does not match its metadata");
+  return {
+    ...identity,
+    bytes,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    capturedAt: Date.now(),
+  };
 }

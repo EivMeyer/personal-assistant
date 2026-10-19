@@ -14,6 +14,12 @@ as the item changes:
   under the same item.
 - **Closed:** done, set aside, blocked, expired or unknown, without buttons.
 
+The item's message is the notification. Background checks never repeat a staged
+item in their own reply: the heartbeat instructions say so, and a finalize hook
+(`queue-echo-guard.mjs`) asks a background run that staged items for one rewrite
+before its reply is delivered. That reply carries only notices no item covers, or
+nothing.
+
 `/inbox` lists what is waiting. `/inbox review ITEM_ID` opens an item, like
 **Send…**.
 

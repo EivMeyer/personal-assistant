@@ -17,7 +17,7 @@ export function ownerCommand(ctx, ownerId) {
   ctx.assertOwnerCurrent?.();
 }
 // The review queue lives in the owner's Telegram chat; there is no other UI.
-export function registerReviewQueue(api, { home = homedir() } = {}) {
+export function registerReviewQueue(api, { home = homedir(), onStaged } = {}) {
   let review, actions;
   const getReview = () =>
     (review ??= new ReviewService({
@@ -26,7 +26,7 @@ export function registerReviewQueue(api, { home = homedir() } = {}) {
       )),
       config: api.config,
     }));
-  registerReviewTools(api, getReview);
+  registerReviewTools(api, getReview, onStaged);
   registerTelegramQueue(api, getReview);
   api.registerCommand({
     name: "inbox",

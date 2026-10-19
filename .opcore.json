@@ -5,6 +5,10 @@
       {
         "source": "deploy/openclaw/action-preview/owner-profile.mjs",
         "document": "docs/openclaw.md"
+      },
+      {
+        "source": "deploy/openclaw/action-preview/media-unreadable.mjs",
+        "document": "docs/connectors.md"
       }
     ]
   }

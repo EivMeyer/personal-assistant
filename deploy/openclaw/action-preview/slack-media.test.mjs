@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { verifiedSlackFile } from "./slack-media-source.mjs";
 import { readSlackMedia } from "./slack-media.mjs";
+import { UnreadableMedia } from "./media-unreadable.mjs";
 const bytes = Buffer.concat([
   Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
   Buffer.alloc(30000),
@@ -72,7 +73,8 @@ test("Slack files reject credential exfiltration URLs, redirects, truncation and
   await assert.rejects(verifiedSlackFile("F123", redirects), /outside/);
 });
 test("Slack images preserve hashes through all chunks and fail on source changes", async () => {
-  const opts = { source: async () => source };
+  // Chunking is tested on the converted bytes; conversion has its own tests.
+  const opts = { source: async () => source, normalize: async (b) => b };
   const first = await readSlackMedia({ file_id: "F123" }, opts);
   const second = await readSlackMedia(
     { file_id: "F123", offset: first.next_offset, expected_sha256: sha256 },
@@ -109,4 +111,82 @@ test("Slack video forwards window coverage and does not inherit WhatsApp provena
   assert.equal(result.start_seconds, 30);
   assert.equal(result.source, "untrusted Slack attachment");
   assert.equal(result.transcript.review_required, true);
+});
+test("Slack images are read as the converted JPEG with the source hash kept", async () => {
+  const jpeg = Buffer.from([255, 216, 255, 224, 1, 2, 3]);
+  const seen = [];
+  const result = await readSlackMedia(
+    { file_id: "F123" },
+    {
+      source: async () => source,
+      normalize: async (bytes, hash) => {
+        seen.push(hash);
+        return jpeg;
+      },
+    },
+  );
+  assert.deepEqual(seen, [sha256]);
+  assert.equal(result.mime_type, "image/jpeg");
+  assert.equal(result.source_sha256, sha256);
+  assert.deepEqual(Buffer.from(result.image_data.join(""), "base64"), jpeg);
+});
+test("Slack files that can never be opened return a complete result instead of an error", async () => {
+  for (const [mimetype, size, reason] of [
+    ["application/zip", 4000, /Unsupported/],
+    ["video/mp4", 200 * 1024 * 1024, /100 MiB/],
+  ]) {
+    const opts = options();
+    const original = opts.request;
+    opts.request = async (url, o) =>
+      url.includes("files.info")
+        ? Response.json({
+            ok: true,
+            file: {
+              id: "F123",
+              name: "bundle.zip",
+              url_private_download: "https://files.slack.com/files-pri/file",
+              mimetype,
+              size,
+            },
+          })
+        : original(url, o);
+    const file = await verifiedSlackFile("F123", opts);
+    assert.match(file.unreadable, reason);
+    // Nothing is downloaded for a file that cannot be read.
+    assert.equal(
+      opts.calls.filter((c) => c.url?.includes("files-pri")).length,
+      0,
+    );
+    const result = await readSlackMedia(
+      { file_id: "F123" },
+      { source: async () => file },
+    );
+    assert.equal(result.readable, false);
+    assert.equal(result.next_offset, null);
+    assert.equal(result.filename, "bundle.zip");
+    assert.match(result.reason, reason);
+  }
+  const undecodable = await readSlackMedia(
+    { file_id: "F123" },
+    {
+      source: async () => source,
+      normalize: async () => {
+        throw new UnreadableMedia("Image could not be decoded");
+      },
+    },
+  );
+  assert.equal(undecodable.readable, false);
+  assert.equal(undecodable.source_sha256, sha256);
+  await assert.rejects(
+    readSlackMedia(
+      { file_id: "F123" },
+      {
+        source: async () => source,
+        normalize: async () => {
+          throw Error("Local image conversion failed; leave this image unread");
+        },
+      },
+    ),
+    /leave this image unread/,
+  );
 });
