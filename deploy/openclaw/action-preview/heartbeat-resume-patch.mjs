@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url";
 import { installReviewedPatch } from "./reviewed-runtime-patch.mjs";
 const marker = "// secretary: defer background checks across host suspension";
 export function patchHeartbeatResume(source, moduleUrl) {
-  if (source.startsWith(marker)) return source;
+  if (source.startsWith(marker)) return patchFailureBackoff(source);
   const replacements = [
     [
       "async function runHeartbeatOnce(opts) {",
@@ -33,13 +33,36 @@ export function patchHeartbeatResume(source, moduleUrl) {
       );
     source = source.replaceAll(before, after);
   }
-  return (
+  return patchFailureBackoff(
     marker +
-    "\nimport { heartbeatAvailability } from " +
-    JSON.stringify(moduleUrl) +
-    ";\n" +
-    source
+      "\nimport { heartbeatAvailability } from " +
+      JSON.stringify(moduleUrl) +
+      ";\n" +
+      source,
   );
+}
+function patchFailureBackoff(source) {
+  if (source.includes("// secretary: background failure cooldown"))
+    return source;
+  const before =
+    "deliver: (payload) => secretaryLease.suspended() ? Promise.resolve() : deliverHeartbeatDispatch(policy, payload, state.agentTurnOwner?.abortSignal ?? signal)";
+  const catchBefore = "} catch (error) {\n\t\tif (secretaryLease.suspended())";
+  if (
+    source.split(before).length !== 2 ||
+    source.split(catchBefore).length !== 2
+  )
+    throw Error(
+      "Unexpected heartbeat failure implementation; review before patching",
+    );
+  return source
+    .replace(
+      before,
+      "deliver: (payload) => { if (payload.isError) heartbeatAvailability.failed(); return secretaryLease.suspended() ? Promise.resolve() : deliverHeartbeatDispatch(policy, payload, state.agentTurnOwner?.abortSignal ?? signal); }",
+    )
+    .replace(
+      catchBefore,
+      "} catch (error) {\n\t\theartbeatAvailability.failed(); // secretary: background failure cooldown\n\t\tif (secretaryLease.suspended())",
+    );
 }
 export function applyHeartbeatResumePatch(root) {
   return installReviewedPatch(root, {

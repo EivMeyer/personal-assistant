@@ -52,3 +52,13 @@ test("normal execution and unrelated parent abort are not classified as suspensi
   assert.equal(lease.suspended(), false);
   lease.dispose();
 });
+test("background failures back off even when incoming events request another check", async () => {
+  const h = harness();
+  h.stable(30_000);
+  assert.equal(await h.gate.ready(), true);
+  h.gate.failed();
+  h.stable(299_000);
+  assert.equal(await h.gate.ready(), false);
+  h.stable(1_000);
+  assert.equal(await h.gate.ready(), true);
+});

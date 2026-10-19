@@ -43,6 +43,13 @@ read errors, while retaining abort, timeout, unfinished-tool and approval checks
 It refuses unreviewed versions and saves the original module before replacement.
 A quiet `NO_REPLY` must not trigger a missing-answer recovery error.
 
+Imported Codex logins use `codex-native-refresh-patch.mjs` to keep token renewal
+with the native Codex credential owner. The assistant adopts current credentials
+only when both account and user match; it never spends the copied refresh token.
+Missing credentials, account changes and failed native renewal require sign-in.
+Apply the patch with the OpenClaw package root, the reviewed Codex client module
+file URL and the bundled Codex binary path. Reapply after runtime replacement.
+
 The recovery LaunchAgent probes current Telegram health and network reachability.
 It gives persistent online failures two minutes to recover, observes a five-minute
 restart cooldown, and waits for pending external actions. A successful restart
@@ -78,6 +85,8 @@ deadline reserves time to save progress before the existing four-minute timeout.
 A tool hook blocks new source reads after that deadline while allowing state saves,
 review preparation and the final heartbeat response; direct owner turns are exempt.
 This limits work per turn, not the amount of source context needed for an action.
+Background failures also defer the next check for five minutes, including wakes
+from incoming messages, so a broken provider cannot flood Telegram with errors.
 
 WhatsApp message pages shrink to fit the tool result budget. Large message text
 uses exact-ID, hash-checked continuation pages through `text`. Gmail's

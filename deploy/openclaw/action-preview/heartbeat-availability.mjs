@@ -20,6 +20,9 @@ export function createHeartbeatAvailability({
   }
   return {
     tick,
+    failed() {
+      readyAt = Math.max(readyAt, now() + 300_000);
+    },
     async ready() {
       tick();
       if (now() < readyAt) return false;
